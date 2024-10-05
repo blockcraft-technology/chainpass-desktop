@@ -13,10 +13,10 @@
     "windows": [
       {
         "title": "ChainPass",
-        "width": 1024,
-        "height": 786,
-        "minHeight": 786,
-        "minWidth": 1024,
+        "width": 1200,
+        "height": 780,
+        "minHeight": 780,
+        "minWidth": 1200,
         "resizable": true
       }
     ],

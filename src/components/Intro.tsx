@@ -23,7 +23,7 @@ const Intro: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
       <h1 className="text-4xl font-bold mb-4">Welcome to ChainPass!</h1>
-      <p className="mb-6">This is a brief introduction to our app.</p>
+      <p className="mb-6">We need content for this :D </p>
       <Button onClick={() => handleContinue()}>Continue</Button>
     </div>
   );
