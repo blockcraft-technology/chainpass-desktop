@@ -14,8 +14,10 @@
       {
         "title": "ChainPass",
         "width": 1024,
-        "height": 786
-        
+        "height": 786,
+        "minHeight": 786,
+        "minWidth": 1024,
+        "resizable": true
       }
     ],
     "security": {
