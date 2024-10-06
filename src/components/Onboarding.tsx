@@ -20,7 +20,7 @@ export default function Onboarding() {
   const [hasSeenIntro, setHasSeenIntro] = useState(false);
   const [importedPhrase, setImportedPhrase] = useState<string[]>(Array(12).fill(''));
   const [copied, setCopied] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const { toast } = useToast();
 
@@ -37,6 +37,7 @@ export default function Onboarding() {
 
   useEffect(() => {
     handleRegenerateMnemonic();
+    document.documentElement.classList.add('dark');
   }, []);
 
   // if (!hasSeenIntro) {
@@ -114,7 +115,7 @@ export default function Onboarding() {
   };
 
   return (
-    <div className={`min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4 transition-colors duration-300 ${isDarkMode ? 'dark' : ''}`}>
+    <div className={`min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4 transition-colors duration-300 dark ${isDarkMode ? 'dark' : ''}`}>
       <Card className="w-full max-w-md overflow-hidden shadow-lg relative">
         <Header isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
         <CardContent className="p-6">
