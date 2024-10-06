@@ -7,48 +7,15 @@ import { Key, Shield, Server, Wallet, FileText, Braces } from "lucide-react"
 import { ConfirmationDialog } from "./main/ConfirmationDialog"
 import { ItemDetails } from "./main/ItemDetails"
 import { NewCategoryModal } from "./main/NewCategoryModal"
-import { NewItemModal } from "./main/NewITemModal"
+import { NewItemModal } from "./main/NewItemModal"
 import { ShareModal } from "./main/ShareModal"
+import { itemTypes, itemTypeSchemas } from "./main/constants"
+import { useWallet } from "@/hooks/useWallet"
+import ContractService from "@/services/contractService"
+import { IExecDataProtectorCore, IExecDataProtectorSharing, getWeb3Provider } from '@iexec/dataprotector';
 
 const initialCategories = ["All", "Personal", "Work", "Finance", "Social"]
 
-const itemTypes = [
-  { name: "Login", icon: <Key className="w-4 h-4" /> },
-  { name: "Password", icon: <Shield className="w-4 h-4" /> },
-  { name: "Server", icon: <Server className="w-4 h-4" /> },
-  { name: "Crypto Wallet", icon: <Wallet className="w-4 h-4" /> },
-  { name: "Secure Note", icon: <FileText className="w-4 h-4" /> },
-  { name: "Secure JSON", icon: <Braces className="w-4 h-4" /> },
-]
-
-const itemTypeSchemas = {
-  Login: {
-    username: { type: "string", label: "Username", required: true },
-    password: { type: "string", label: "Password", required: true },
-    website: { type: "string", label: "Website", required: true },
-  },
-  Password: {
-    password: { type: "string", label: "Password", required: true },
-    description: { type: "string", label: "Description", required: true },
-  },
-  Server: {
-    hostname: { type: "string", label: "Hostname", required: true },
-    username: { type: "string", label: "Username", required: true },
-    password: { type: "string", label: "Password", required: true },
-    port: { type: "number", label: "Port", required: true },
-  },
-  "Crypto Wallet": {
-    address: { type: "string", label: "Wallet Address", required: true },
-    privateKey: { type: "string", label: "Private Key", required: true },
-  },
-  "Secure Note": {
-    title: { type: "string", label: "Title", required: true },
-    content: { type: "string", label: "Content", multiline: true, required: true },
-  },
-  "Secure JSON": {
-    json: { type: "string", label: "JSON Content", multiline: true, required: true },
-  },
-}
 
 export default function ChainPass() {
   const [isDarkMode, setIsDarkMode] = useState(false)
@@ -67,7 +34,7 @@ export default function ChainPass() {
     workspace: "Personal",
     sharedWith: [],
   })
-  const [newTag, setNewTag] = useState("")
+  const [newTag, setNewTag] = useState("")  
   const [selectedItemTypes, setSelectedItemTypes] = useState<string[]>([])
   const [categories, setCategories] = useState(() => {
     const storedCategories = localStorageService.getItem("categories")
@@ -87,6 +54,10 @@ export default function ChainPass() {
   const [revokeWalletAddress, setRevokeWalletAddress] = useState("")
   const [isSharedView, setIsSharedView] = useState(false)
 
+  const [chainClient, setChainClient] = useState<ContractService | null>(null);
+  const [dataProtectorCore, setDataProtectorCore] = useState<IExecDataProtectorCore>();
+  const [dataProtectorSharing, setDataProtectorSharing] = useState<IExecDataProtectorSharing>();
+
   const filteredItems = items.filter(item =>
     (selectedCategory === "All" || item.category === selectedCategory) &&
     (item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -94,6 +65,24 @@ export default function ChainPass() {
     (selectedItemTypes.length === 0 || selectedItemTypes.includes(item.type)) &&
     (isSharedView ? item.isShared : !item.isShared)
   )
+
+  const { wallet } = useWallet();
+
+  useEffect(() => {
+    if (!wallet) return;
+    const contractAddress = '0x58B19940498f1a15993C6FDC6897BA7b72A71162'; 
+    const providerUrl = 'https://bellecour.iex.ec'; 
+    const privateKey = wallet.privateKey;
+    const web3Provider = getWeb3Provider(wallet.privateKey);
+    const dataProtectorCore = new IExecDataProtectorCore(web3Provider);
+    const dataProtectorSharing = new IExecDataProtectorSharing(web3Provider);
+
+    const chainService = new ContractService(contractAddress, providerUrl, privateKey);
+    setChainClient(chainService);
+    setDataProtectorCore(dataProtectorCore);
+    setDataProtectorSharing(dataProtectorSharing);
+
+  }, [wallet]);
 
   useEffect(() => {
     localStorageService.setItem("categories", categories)
@@ -127,17 +116,59 @@ export default function ChainPass() {
     }))
   }
 
-  const handleSaveNewItem = () => {
-    const newItem = {
-      ...newItemData,
-      id: isEditMode ? selectedPassword.id : Date.now(),
-      type: newItemType.name,
-    }
+  const handleSaveNewItem = async () => {
+    const protectedData = await dataProtectorCore.protectData({
+        data: {
+          name: `${Date.now()}`,
+          file: JSON.stringify(newItemData)
+        }
+    });
+
+    await dataProtectorCore.grantAccess({
+      protectedData: protectedData.address,
+      authorizedApp: '0x329f35b4f56956f8f601003508ff506b62fe833c',
+      authorizedUser: wallet.address,
+      pricePerAccess: 0,
+      numberOfAccess: 100000,
+    });
+
+
+    // const data = await dataProtectorCore.processProtectedData({
+    //   protectedData: protectedData.address,
+    //   app: '0x329f35b4f56956f8f601003508ff506b62fe833c',
+    //   maxPrice: 0,
+    // });
+    // const taskData = await dataProtectorSharing.getResultFromCompletedTask({
+    //   taskId: data.taskId
+    // });
+    // const buff = Buffer.from(taskData.result);
+    // const decoder = new TextDecoder();
+    // alert(decoder.decode(taskData.result));
+
+
+    await chainClient!.addDataItem(protectedData.address);
 
     if (isEditMode) {
-      setItems(prev => prev.map(item => item.id === selectedPassword.id ? newItem : item))
+      const protectedData = await dataProtectorCore.protectData({
+        data: {
+          name: `${Date.now()}`,
+          file: JSON.stringify(newItemData)
+        }
+      });
+      await chainClient.updateDataItemPointer(selectedPassword.id, protectedData.address);
+      const newItem = {
+        ...newItemData,
+        id: protectedData.address,
+        type: newItemType.name,
+      }
+      setItems(prev => prev.map(item => item.id === selectedPassword.id ?  newItem : item))
       setSelectedPassword(newItem)
     } else {
+      const newItem = {
+        ...newItemData,
+        id: protectedData.address,
+        type: newItemType.name,
+      }
       setItems(prev => [...prev, newItem])
     }
 
@@ -182,8 +213,17 @@ export default function ChainPass() {
     setIsRemoveConfirmationOpen(false)
   }
 
-  const handleShareItem = () => {
+  const handleShareItem = async () => {
     if (shareWalletAddress && selectedPassword) {
+      await dataProtectorCore.grantAccess({
+        protectedData: selectedPassword.id,
+        authorizedApp: '0x329f35b4f56956f8f601003508ff506b62fe833c',
+        authorizedUser: shareWalletAddress,
+        pricePerAccess: 0,
+        numberOfAccess: 10000,
+      });
+      await chainClient.shareDataItem(selectedPassword.id, shareWalletAddress);
+
       setItems(prev => prev.map(item => {
         if (item.id === selectedPassword.id) {
           return {
@@ -202,8 +242,17 @@ export default function ChainPass() {
     }
   }
 
-  const handleRevokeAccess = () => {
+  const handleRevokeAccess = async() => {
     if (revokeWalletAddress && selectedPassword) {
+
+      await chainClient.removeSharedDataItem(revokeWalletAddress, selectedPassword.id);
+      const grant = await dataProtectorCore.getGrantedAccess({
+        protectedData: selectedPassword.id,
+        authorizedApp: '0x329f35b4f56956f8f601003508ff506b62fe833c',
+        authorizedUser: revokeWalletAddress,
+      });
+
+      await dataProtectorCore.revokeOneAccess(grant.grantedAccess[0]);
       setItems(prev => prev.map(item => {
         if (item.id === selectedPassword.id) {
           return {
@@ -229,6 +278,10 @@ export default function ChainPass() {
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
     // You might want to add a toast notification here
+  }
+
+  if (!wallet ) {
+    return <>Loading Wallet</>
   }
 
   return (
@@ -266,6 +319,7 @@ export default function ChainPass() {
                 selectedPassword={selectedPassword}
               />
               <ItemDetails
+                key={selectedPassword.id}
                 selectedPassword={selectedPassword}
                 isSharedView={isSharedView}
                 setIsShareModalOpen={setIsShareModalOpen}

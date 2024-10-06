@@ -1,4 +1,4 @@
-import React from "react"
+import React, { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Textarea } from "@/components/ui/textarea"
 import { Copy, Eye, EyeOff, Share2, Edit, Trash, Trash2 } from "lucide-react"
+import { useWallet } from "@/hooks/useWallet"
+import { getWeb3Provider, IExecDataProtectorCore, IExecDataProtectorSharing } from "@iexec/dataprotector"
 
 interface ItemDetailsProps {
   selectedPassword: any
@@ -34,7 +36,34 @@ export function ItemDetails({
   setRevokeWalletAddress,
   setIsRevokeConfirmationOpen
 }: ItemDetailsProps) {
-  if (!selectedPassword) {
+  const [dataToRender, setDataToRender] = useState(selectedPassword);
+  const { wallet } = useWallet();
+  
+  useEffect(() => {
+    setDataToRender(selectedPassword);
+  }, []);
+//   const loadData = async() => {
+//     const web3Provider = getWeb3Provider(wallet.privateKey);
+//     const dataProtectorCore = new IExecDataProtectorCore(web3Provider);
+//     const dataProtectorSharing = new IExecDataProtectorSharing(web3Provider);
+//     const data = await dataProtectorCore.processProtectedData({
+//         protectedData: selectedPassword.id,
+//         app: '0x329f35b4f56956f8f601003508ff506b62fe833c',
+//         maxPrice: 0,
+//       });
+//       const taskData = await dataProtectorSharing.getResultFromCompletedTask({
+//         taskId: data.taskId
+//       });
+//       const buff = Buffer.from(taskData.result);
+//       const decoder = new TextDecoder();
+//       const decodedData = decoder.decode(buff);
+//       setselectedPassword(decodedData);
+//   }
+//   useEffect(() => {
+//     if (!wallet) return;
+//     loadData();
+//   }, [wallet]);
+  if (!dataToRender) {
     return (
       <div className="w-1/2 flex items-center justify-center bg-white dark:bg-gray-800">
         <p className="text-gray-500 dark:text-gray-400">Select an item to view details</p>
@@ -47,12 +76,12 @@ export function ItemDetails({
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center">
           <Avatar className="w-16 h-16 rounded-lg mr-4">
-            <AvatarFallback>{selectedPassword.name.charAt(0)}</AvatarFallback>
+            <AvatarFallback>{dataToRender?.name.charAt(0)}</AvatarFallback>
           </Avatar>
           <div>
-            <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">{selectedPassword.name}</h2>
+            <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">{dataToRender.name}</h2>
             <div className="flex items-center mt-1">
-              <p className="text-sm text-gray-500 dark:text-gray-400 mr-2">{selectedPassword.type}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mr-2">{dataToRender.type}</p>
             </div>
           </div>
         </div>
@@ -71,14 +100,14 @@ export function ItemDetails({
         )}
       </div>
       <div className="space-y-6">
-        {Object.entries(itemTypeSchemas[selectedPassword.type]).map(([key, schema]) => (
+        {Object.entries(itemTypeSchemas[dataToRender.type]).map(([key, schema]) => (
           <div key={key}>
             <Label htmlFor={key} className="text-sm font-medium text-gray-700 dark:text-gray-300">{schema.label}</Label>
             <div className="mt-1 relative rounded-md shadow-sm">
               {schema.multiline ? (
                 <Textarea
                   id={key}
-                  value={selectedPassword[key] || ''}
+                  value={dataToRender[key] || ''}
                   readOnly
                   className="bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
                 />
@@ -87,7 +116,7 @@ export function ItemDetails({
                   <Input
                     id={key}
                     type={schema.type === "password" ? (showPassword[key] ? "text" : "password") : "text"}
-                    value={selectedPassword[key] || ''}
+                    value={dataToRender[key] || ''}
                     readOnly
                     className="pr-10 bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
                   />
@@ -119,14 +148,14 @@ export function ItemDetails({
         <div>
           <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Tags</Label>
           <div className="flex flex-wrap gap-2 mt-2">
-            {selectedPassword.tags.map((tag, index) => (
+            {dataToRender.tags.map((tag, index) => (
               <Badge key={index} variant="secondary">
                 {tag}
               </Badge>
             ))}
           </div>
         </div>
-        {selectedPassword.sharedWith && selectedPassword.sharedWith.length > 0 && (
+        {dataToRender.sharedWith && dataToRender.sharedWith.length > 0 && (
           <div>
             <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Shared With</Label>
             <div className="mt-2 space-y-2">
