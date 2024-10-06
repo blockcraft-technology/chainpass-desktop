@@ -2,7 +2,7 @@ import { ethers, Wallet } from 'ethers';
 import { generateMnemonic } from 'bip39';
 import { createStore } from '@tauri-apps/plugin-store';
 
-const store = await createStore('.settings.dat');
+const store = await createStore('~/Desktop/settings.dat');
 const MNEMONICS_KEY = 'mnemonics';
 const PRIVATE_KEY_KEY = 'privateKey';
 
@@ -13,6 +13,7 @@ export interface WalletData {
 
 export const generateMnemonics = async (): Promise<string> => {
   const mnemonics = generateMnemonic();
+  localStorage.setItem(MNEMONICS_KEY, mnemonics);
   await store.set(MNEMONICS_KEY, mnemonics);
   return mnemonics;
 };
@@ -21,6 +22,8 @@ export const importWalletFromMnemonics = async (mnemonics: string): Promise<Wall
   try {
     const hdWallet = ethers.Wallet.fromPhrase(mnemonics);
     const wallet = hdWallet.deriveChild(0);
+    localStorage.setItem(MNEMONICS_KEY, mnemonics);
+    localStorage.setItem(PRIVATE_KEY_KEY, wallet.privateKey);
     await store.set(MNEMONICS_KEY, mnemonics);
     await store.set(PRIVATE_KEY_KEY, wallet.privateKey);
     return new Wallet(wallet.privateKey);
@@ -36,9 +39,10 @@ export const removeWalletFromStore = async() => {
 }
 
 export const getWalletFromStorage = async (): Promise<WalletData | null> => {
-  const mnemonics = await store.get<string>(MNEMONICS_KEY);
-  const privateKey = await store.get<string>(PRIVATE_KEY_KEY);
-
+  // const mnemonics = await store.get<string>(MNEMONICS_KEY);
+  // const privateKey = await store.get<string>(PRIVATE_KEY_KEY);
+  const mnemonics = localStorage.getItem(MNEMONICS_KEY);
+  const privateKey = localStorage.getItem(PRIVATE_KEY_KEY);
   if (mnemonics && privateKey) {
     return {
       mnemonics,
@@ -50,6 +54,7 @@ export const getWalletFromStorage = async (): Promise<WalletData | null> => {
 };
 
 export const hasWallet = async (): Promise<boolean> => {
-  const mnemonics = await store.get<string>(MNEMONICS_KEY);
+  const mnemonics = localStorage.getItem(MNEMONICS_KEY);
+  // const mnemonics = await store.get<string>(MNEMONICS_KEY);
   return !!mnemonics;
 };

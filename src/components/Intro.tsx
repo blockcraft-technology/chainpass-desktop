@@ -161,7 +161,6 @@ export default function Intro() {
 
   if (hasSeenIntro) {
     navigate('/onboarding')
-    return null
   }
   return (
     <div className="fixed inset-0 w-full h-full overflow-hidden bg-black text-white">

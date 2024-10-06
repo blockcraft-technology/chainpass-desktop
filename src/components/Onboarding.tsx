@@ -40,9 +40,9 @@ export default function Onboarding() {
     document.documentElement.classList.add('dark');
   }, []);
 
-  // if (!hasSeenIntro) {
-  //   redirect('/intro');
-  // }
+  if (!hasSeenIntro) {
+    redirect('/intro');
+  }
   const handleRegenerateMnemonic = async () => {
     const mnemonics = await generateNewMnemonic();
     setMnemonic(mnemonics.split(' '));
@@ -73,8 +73,6 @@ export default function Onboarding() {
       inputRefs.current[index + 1]?.focus();
     }
   };
-
-  const isImportComplete = importedPhrase.every((word) => word.trim() !== '');
 
   const importProgress = (importedPhrase.filter((word) => word.trim() !== '').length / 12) * 100;
 

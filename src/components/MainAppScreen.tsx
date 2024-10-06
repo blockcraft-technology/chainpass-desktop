@@ -1,20 +1,12 @@
-import React, { useState, useRef, useEffect } from "react"
-import { motion, AnimatePresence } from "framer-motion"
-import { ChevronDown, ChevronRight, Copy, Eye, EyeOff, Link, Moon, Plus, Search, Shield, Star, Sun, Tag, User, X, MoreHorizontal, Trash2, Key, Server, Wallet, FileText, Braces, ChevronLeft, ChevronUp, Briefcase, DollarSign, Users, LogOut, Share2, Edit, Trash } from "lucide-react"
+import React, { useState, useEffect } from "react"
+import { ChevronRight, Copy, Eye, EyeOff, Link, Moon, Plus, Search, Shield, Sun, User, X, Trash2, Key, Server, Wallet, FileText, Braces, LogOut, Share2, Edit, Trash } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Card, CardContent } from "@/components/ui/card"
@@ -31,12 +23,12 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
+import { useWallet } from "@/hooks/useWallet"
 
 const initialCategories = ["All", "Personal", "Work", "Finance", "Social"]
 
@@ -125,6 +117,8 @@ export default function ChainPass() {
   const [revokeWalletAddress, setRevokeWalletAddress] = useState("")
   const [isSharedView, setIsSharedView] = useState(false)
   const [hasNewSharedItems, setHasNewSharedItems] = useState(true)
+
+  const { wallet } = useWallet();
 
   const filteredItems = items.filter(item =>
     (selectedCategory === "All" || item.category === selectedCategory) &&
@@ -392,7 +386,7 @@ export default function ChainPass() {
                       <AvatarFallback>WA</AvatarFallback>
                     </Avatar>
                     <div className="ml-3">
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-200">0x1234...5678</p>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{`${wallet.address.substring(0, 6)}..${wallet.address.substring(wallet.address.length - 6, wallet.address.length)}`}</p>
                     </div>
                   </div>
                 </DropdownMenuTrigger>
