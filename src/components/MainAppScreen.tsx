@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react"
-import { ChevronDown, ChevronRight, Copy, Eye, EyeOff, Link, Moon, Plus, Search, Shield, Star, Sun, Tag, User, X, MoreHorizontal, Trash2, Key, Server, Wallet, FileText, Braces, ChevronLeft, ChevronUp, Briefcase, DollarSign, Users, LogOut } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import { ChevronDown, ChevronRight, Copy, Eye, EyeOff, Link, Moon, Plus, Search, Shield, Star, Sun, Tag, User, X, MoreHorizontal, Trash2, Key, Server, Wallet, FileText, Braces, ChevronLeft, ChevronUp, Briefcase, DollarSign, Users, LogOut, Share2, Edit, Trash } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -37,13 +38,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 
-const initialCategories = [
-  { name: "All", icon: <Shield className="w-4 h-4" /> },
-  { name: "Personal", icon: <User className="w-4 h-4" /> },
-  { name: "Work", icon: <Briefcase className="w-4 h-4" /> },
-  { name: "Finance", icon: <DollarSign className="w-4 h-4" /> },
-  { name: "Social", icon: <Users className="w-4 h-4" /> },
-]
+const initialCategories = ["All", "Personal", "Work", "Finance", "Social"]
 
 const itemTypes = [
   { name: "Login", icon: <Key className="w-4 h-4" /> },
@@ -83,11 +78,21 @@ const itemTypeSchemas = {
   },
 }
 
+// Local storage functions
+const getLocalStorageItem = (key: string) => {
+  const item = localStorage.getItem(key)
+  return item ? JSON.parse(item) : null
+}
+
+const setLocalStorageItem = (key: string, value: any) => {
+  localStorage.setItem(key, JSON.stringify(value))
+}
+
 export default function ChainPass() {
   const [isDarkMode, setIsDarkMode] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState("All")
   const [selectedPassword, setSelectedPassword] = useState(null)
-  const [showPassword, setShowPassword] = useState(false)
+  const [showPassword, setShowPassword] = useState({})
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedWorkspace, setSelectedWorkspace] = useState("Personal")
   const [isNewPasswordModalOpen, setIsNewPasswordModalOpen] = useState(false)
@@ -98,23 +103,44 @@ export default function ChainPass() {
     tags: [],
     category: "Personal",
     workspace: "Personal",
+    sharedWith: [],
   })
   const [newTag, setNewTag] = useState("")
   const [selectedItemTypes, setSelectedItemTypes] = useState<string[]>([])
-  const [categories, setCategories] = useState(initialCategories)
+  const [categories, setCategories] = useState(() => {
+    const storedCategories = getLocalStorageItem("categories")
+    return storedCategories || initialCategories
+  })
   const [isNewCategoryModalOpen, setIsNewCategoryModalOpen] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState("")
-  const [newCategoryIcon, setNewCategoryIcon] = useState<JSX.Element | null>(null)
-  const [items, setItems] = useState<any[]>([])
+  const [items, setItems] = useState(() => {
+    const storedItems = getLocalStorageItem("items")
+    return storedItems || []
+  })
   const [isEditMode, setIsEditMode] = useState(false)
   const [isRemoveConfirmationOpen, setIsRemoveConfirmationOpen] = useState(false)
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [shareWalletAddress, setShareWalletAddress] = useState("")
+  const [isRevokeConfirmationOpen, setIsRevokeConfirmationOpen] = useState(false)
+  const [revokeWalletAddress, setRevokeWalletAddress] = useState("")
+  const [isSharedView, setIsSharedView] = useState(false)
+  const [hasNewSharedItems, setHasNewSharedItems] = useState(true)
 
   const filteredItems = items.filter(item =>
     (selectedCategory === "All" || item.category === selectedCategory) &&
     (item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))) &&
-    (selectedItemTypes.length === 0 || selectedItemTypes.includes(item.type))
+    (selectedItemTypes.length === 0 || selectedItemTypes.includes(item.type)) &&
+    (isSharedView ? item.isShared : !item.isShared)
   )
+
+  useEffect(() => {
+    setLocalStorageItem("categories", categories)
+  }, [categories])
+
+  useEffect(() => {
+    setLocalStorageItem("items", items)
+  }, [items])
 
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode)
@@ -161,6 +187,7 @@ export default function ChainPass() {
       tags: [],
       category: "Personal",
       workspace: "Personal",
+      sharedWith: [],
     })
     setIsEditMode(false)
   }
@@ -174,15 +201,10 @@ export default function ChainPass() {
   }
 
   const handleAddCategory = () => {
-    if (newCategoryName && newCategoryIcon) {
-      const newCategory = {
-        name: newCategoryName,
-        icon: newCategoryIcon,
-      }
-      setCategories(prev => [...prev, newCategory])
+    if (newCategoryName) {
+      setCategories(prev => [...prev, newCategoryName])
       setIsNewCategoryModalOpen(false)
       setNewCategoryName("")
-      setNewCategoryIcon(null)
     }
   }
 
@@ -197,6 +219,55 @@ export default function ChainPass() {
     setItems(prev => prev.filter(item => item.id !== selectedPassword.id))
     setSelectedPassword(null)
     setIsRemoveConfirmationOpen(false)
+  }
+
+  const handleShareItem = () => {
+    if (shareWalletAddress && selectedPassword) {
+      setItems(prev => prev.map(item => {
+        if (item.id === selectedPassword.id) {
+          return {
+            ...item,
+            sharedWith: [...(item.sharedWith || []), shareWalletAddress]
+          }
+        }
+        return item
+      }))
+      setSelectedPassword(prev => ({
+        ...prev,
+        sharedWith: [...(prev.sharedWith || []), shareWalletAddress]
+      }))
+      setShareWalletAddress("")
+      setIsShareModalOpen(false)
+    }
+  }
+
+  const handleRevokeAccess = () => {
+    if (revokeWalletAddress && selectedPassword) {
+      setItems(prev => prev.map(item => {
+        if (item.id === selectedPassword.id) {
+          return {
+            ...item,
+            sharedWith: item.sharedWith.filter(wallet => wallet !== revokeWalletAddress)
+          }
+        }
+        return item
+      }))
+      setSelectedPassword(prev => ({
+        ...prev,
+        sharedWith: prev.sharedWith.filter(wallet => wallet !== revokeWalletAddress)
+      }))
+      setRevokeWalletAddress("")
+      setIsRevokeConfirmationOpen(false)
+    }
+  }
+
+  const togglePasswordVisibility = (key: string) => {
+    setShowPassword(prev => ({ ...prev, [key]: !prev[key] }))
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+    // You might want to add a toast notification here
   }
 
   return (
@@ -230,16 +301,10 @@ export default function ChainPass() {
                     <span>Personal</span>
                   </div>
                 </SelectItem>
-                <SelectItem value="Batcave">
-                  <div className="flex items-center">
-                    <Shield className="w-4 h-4 mr-2" />
-                    <span>Batcave</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="add_new">
-                  <div className="flex items-center text-blue-600 dark:text-blue-400">
+                <SelectItem value="add_new" disabled>
+                  <div className="flex items-center text-gray-400">
                     <Plus className="w-4 h-4 mr-2" />
-                    <span>Add new workspace</span>
+                    <span>Add new workspace (Coming Soon)</span>
                   </div>
                 </SelectItem>
               </SelectContent>
@@ -261,18 +326,42 @@ export default function ChainPass() {
                 </div>
                 {categories.map((category) => (
                   <button
-                    key={category.name}
-                    onClick={() => setSelectedCategory(category.name)}
+                    key={category}
+                    onClick={() => {
+                      setSelectedCategory(category)
+                      setIsSharedView(false)
+                    }}
                     className={`flex items-center w-full px-2 py-1.5 mt-1 text-left text-sm transition-colors rounded-md cursor-pointer ${
-                      selectedCategory === category.name
+                      selectedCategory === category && !isSharedView
                         ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                         : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                     }`}
                   >
-                    {category.icon}
-                    <span className="ml-3">{category.name}</span>
+                    <span className="ml-3">{category}</span>
                   </button>
                 ))}
+                <div className="mt-2 border-t border-gray-200 dark:border-gray-700 pt-2">
+                  <button
+                    onClick={() => {
+                      setIsSharedView(true)
+                      setSelectedCategory("All")
+                      setHasNewSharedItems(false)
+                    }}
+                    className={`flex items-center w-full px-2 py-1.5 mt-1 text-left text-sm transition-colors rounded-md cursor-pointer ${
+                      isSharedView
+                        ? "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                        : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                    }`}
+                  >
+                    <Share2 className="w-4 h-4" />
+                    <span className="ml-3">Shared with me</span>
+                    {hasNewSharedItems && (
+                      <Badge variant="default" className="ml-auto bg-blue-500">
+                        New
+                      </Badge>
+                    )}
+                  </button>
+                </div>
               </div>
               <div className="px-4 py-2 mt-4">
                 <h2 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Item Types</h2>
@@ -336,39 +425,43 @@ export default function ChainPass() {
                         className="pl-10 w-full bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
                       />
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="sm">
-                          <Plus className="w-4 h-4 mr-2" />
-                          New
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent>
-                        {itemTypes.map((type) => (
-                          <DropdownMenuItem 
-                            key={type.name}
-                            onClick={() => {
-                              setNewItemType(type)
-                              setNewItemData(prev => ({ ...prev, type: type.name }))
-                              setIsNewPasswordModalOpen(true)
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <div className="flex items-center">
-                              {type.icon}
-                              <span className="ml-2">{type.name}</span>
-                            </div>
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    {!isSharedView && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="sm">
+                            <Plus className="w-4 h-4 mr-2" />
+                            New
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          {itemTypes.map((type) => (
+                            <DropdownMenuItem 
+                              key={type.name}
+                              onClick={() => {
+                                setNewItemType(type)
+                                setNewItemData(prev => ({ ...prev, type: type.name }))
+                                setIsNewPasswordModalOpen(true)
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <div className="flex items-center">
+                                {type.icon}
+                                <span className="ml-2">{type.name}</span>
+                              </div>
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </div>
                 </div>
                 {filteredItems.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-center p-4">
                     <Shield className="w-16 h-16 text-gray-400 dark:text-gray-600 mb-4" />
                     <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No items found</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Add your first item using the 'New' button above</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {isSharedView ? "No shared items yet" : "Add your first item using the 'New' button above"}
+                    </p>
                   </div>
                 ) : (
                   filteredItems.map((item) => (
@@ -397,6 +490,11 @@ export default function ChainPass() {
                             </Badge>
                           ))}
                         </div>
+                        {item.sharedWith && item.sharedWith.length > 0 && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                            Shared with {item.sharedWith.length} wallet{item.sharedWith.length > 1 ? 's' : ''}
+                          </p>
+                        )}
                       </div>
                       <ChevronRight className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0 ml-2 self-center" />
                     </div>
@@ -416,14 +514,22 @@ export default function ChainPass() {
                         <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">{selectedPassword.name}</h2>
                         <div className="flex items-center mt-1">
                           <p className="text-sm text-gray-500 dark:text-gray-400 mr-2">{selectedPassword.type}</p>
-                          <Badge variant="secondary">{selectedPassword.category}</Badge>
                         </div>
                       </div>
                     </div>
-                    <div className="flex space-x-2">
-                      <Button variant="outline" onClick={handleEditItem}>Edit</Button>
-                      <Button variant="destructive" onClick={() => setIsRemoveConfirmationOpen(true)}>Remove</Button>
-                    </div>
+                    {!isSharedView && (
+                      <div className="flex space-x-2">
+                        <Button variant="outline" onClick={() => setIsShareModalOpen(true)}>
+                          <Share2 className="w-4 h-4" />
+                        </Button>
+                        <Button variant="outline" onClick={handleEditItem}>
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button variant="destructive" onClick={() => setIsRemoveConfirmationOpen(true)}>
+                          <Trash className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-6">
                     {Object.entries(itemTypeSchemas[selectedPassword.type]).map(([key, schema]) => (
@@ -441,20 +547,20 @@ export default function ChainPass() {
                             <div className="flex items-center">
                               <Input
                                 id={key}
-                                type={key === "password" || key === "privateKey" ? (showPassword ? "text" : "password") : "text"}
+                                type={schema.type === "password" ? (showPassword[key] ? "text" : "password") : "text"}
                                 value={selectedPassword[key] || ''}
                                 readOnly
                                 className="pr-10 bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
                               />
-                              {(key === "password" || key === "privateKey") && (
+                              {schema.type === "password" && (
                                 <Button
                                   type="button"
                                   variant="ghost"
                                   size="sm"
                                   className="absolute inset-y-0 right-0 px-3 flex items-center"
-                                  onClick={() => setShowPassword(!showPassword)}
+                                  onClick={() => togglePasswordVisibility(key)}
                                 >
-                                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                  {showPassword[key] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                 </Button>
                               )}
                               <Button
@@ -462,10 +568,7 @@ export default function ChainPass() {
                                 variant="ghost"
                                 size="sm"
                                 className="ml-2"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(selectedPassword[key])
-                                  // You might want to add a toast notification here
-                                }}
+                                onClick={() => copyToClipboard(selectedPassword[key])}
                               >
                                 <Copy className="h-4 w-4" />
                               </Button>
@@ -484,6 +587,30 @@ export default function ChainPass() {
                         ))}
                       </div>
                     </div>
+                    {selectedPassword.sharedWith && selectedPassword.sharedWith.length > 0 && (
+                      <div>
+                        <Label className="text-sm font-medium text-gray-700 dark:text-gray-300">Shared With</Label>
+                        <div className="mt-2 space-y-2">
+                          {selectedPassword.sharedWith.map((wallet, index) => (
+                            <div key={index} className="flex items-center justify-between bg-gray-100 dark:bg-gray-700 p-2 rounded-md">
+                              <span className="text-sm">{wallet}</span>
+                              {!isSharedView && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setRevokeWalletAddress(wallet)
+                                    setIsRevokeConfirmationOpen(true)
+                                  }}
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-500" />
+                                </Button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
@@ -514,7 +641,7 @@ export default function ChainPass() {
                   value={newItemData.name}
                   onChange={handleInputChange}
                   placeholder={`${newItemType.name} Name`}
-                  className="text-lg font-semibold bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
+                  className="text-lg font-semibold bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600 focus:ring-0 focus:border-gray-200 dark:focus:border-gray-600"
                   required
                 />
                 <Label className="text-sm text-gray-500 dark:text-gray-400">{newItemType.name}</Label>
@@ -531,7 +658,7 @@ export default function ChainPass() {
                       value={newItemData[key] || ""}
                       onChange={handleInputChange}
                       placeholder={schema.label}
-                      className="mt-1 bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
+                      className="mt-1 bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600 focus:ring-0 focus:border-gray-200 dark:focus:border-gray-600"
                       required={schema.required}
                     />
                   ) : (
@@ -542,7 +669,7 @@ export default function ChainPass() {
                       value={newItemData[key] || ""}
                       onChange={handleInputChange}
                       placeholder={schema.label}
-                      className="mt-1 bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
+                      className="mt-1 bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600 focus:ring-0 focus:border-gray-200 dark:focus:border-gray-600"
                       required={schema.required}
                     />
                   )}
@@ -555,7 +682,7 @@ export default function ChainPass() {
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
                     placeholder="Add a tag"
-                    className="flex-grow bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
+                    className="flex-grow bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600 focus:ring-0 focus:border-gray-200 dark:focus:border-gray-600"
                     onKeyPress={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault()
@@ -563,7 +690,8 @@ export default function ChainPass() {
                       }
                     }}
                   />
-                  <Button onClick={handleAddTag} variant="outline" size="sm" className="ml-2">
+                  <Button onClick={handleAddTag} variant="outline" size="sm"
+                    className="ml-2 bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600 focus:ring-0 focus:border-gray-200 dark:focus:border-gray-600">
                     Add
                   </Button>
                 </div>
@@ -586,12 +714,9 @@ export default function ChainPass() {
                 <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
-                {categories.filter(c => c.name !== "All").map((category) => (
-                  <SelectItem key={category.name} value={category.name}>
-                    <div className="flex items-center">
-                      {category.icon}
-                      <span className="ml-2">{category.name}</span>
-                    </div>
+                {categories.filter(c => c !== "All").map((category) => (
+                  <SelectItem key={category} value={category}>
+                    <span className="ml-2">{category}</span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -613,29 +738,9 @@ export default function ChainPass() {
                   id="categoryName"
                   value={newCategoryName}
                   onChange={(e) => setNewCategoryName(e.target.value)}
-                  className="mt-1"
+                  className="mt-1 bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600 focus:ring-0 focus:border-gray-200 dark:focus:border-gray-600"
                   required
                 />
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="w-10">
-                  <Label htmlFor="icon">Icon</Label>
-                </div>
-                <Select onValueChange={(value) => setNewCategoryIcon(itemTypes.find(type => type.name === value)?.icon || null)}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Select icon" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {itemTypes.map((type) => (
-                      <SelectItem key={type.name} value={type.name}>
-                        <div className="flex items-center">
-                          {type.icon}
-                          <span className="ml-2">{type.name}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
             </div>
           </div>
@@ -655,6 +760,41 @@ export default function ChainPass() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsRemoveConfirmationOpen(false)}>Cancel</Button>
             <Button variant="destructive" onClick={handleRemoveItem}>Remove</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isShareModalOpen} onOpenChange={setIsShareModalOpen}>
+        <DialogContent className="sm:max-w-[425px] bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+          <DialogHeader>
+            <DialogTitle>Share Item</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="walletAddress">Wallet Address or ENS</Label>
+            <Input
+              id="walletAddress"
+              value={shareWalletAddress}
+              onChange={(e) => setShareWalletAddress(e.target.value)}
+              placeholder="0x... or name.eth"
+              className="mt-1 bg-gray-100 dark:bg-gray-700 border-gray-200 dark:border-gray-600 focus:ring-0 focus:border-gray-200 dark:focus:border-gray-600"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsShareModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleShareItem}>Share</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isRevokeConfirmationOpen} onOpenChange={setIsRevokeConfirmationOpen}>
+        <DialogContent className="sm:max-w-[425px] bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+          <DialogHeader>
+            <DialogTitle>Revoke Access</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p>Are you sure you want to revoke access for {revokeWalletAddress}?</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRevokeConfirmationOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleRevokeAccess}>Revoke Access</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
