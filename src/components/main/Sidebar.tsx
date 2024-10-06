@@ -17,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Link, Moon, Plus, Search, Shield, Star, Sun, Tag, User, LogOut, Share2 } from "lucide-react"
+import { useWallet } from '@/hooks/useWallet'
 
 interface SidebarProps {
   isDarkMode: boolean
@@ -50,9 +51,8 @@ export function Sidebar({
   toggleItemTypeFilter,
   isSharedView,
   setIsSharedView,
-  hasNewSharedItems,
-  setHasNewSharedItems
 }: SidebarProps) {
+    const { wallet } = useWallet();
   return (
     <div className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
       <div className="p-4 flex items-center justify-between">
@@ -125,7 +125,6 @@ export function Sidebar({
                 onClick={() => {
                   setIsSharedView(true)
                   setSelectedCategory("All")
-                  setHasNewSharedItems(false)
                 }}
                 className={`flex items-center w-full px-2 py-1.5 mt-1 text-left text-sm transition-colors rounded-md cursor-pointer ${
                   isSharedView
@@ -135,11 +134,6 @@ export function Sidebar({
               >
                 <Share2 className="w-4 h-4" />
                 <span className="ml-3">Shared with me</span>
-                {hasNewSharedItems && (
-                  <Badge variant="default" className="ml-auto bg-blue-500">
-                    New
-                  </Badge>
-                )}
               </button>
             </div>
           </div>
@@ -171,7 +165,7 @@ export function Sidebar({
                   <AvatarFallback>WA</AvatarFallback>
                 </Avatar>
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">0x1234...5678</p>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-200">{`${wallet.address.substring(0, 6)}..${wallet.address.substring(wallet.address.length - 6, wallet.address.length)}`}</p>
                 </div>
               </div>
             </DropdownMenuTrigger>

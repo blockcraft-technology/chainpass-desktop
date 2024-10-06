@@ -86,7 +86,6 @@ export default function ChainPass() {
   const [isRevokeConfirmationOpen, setIsRevokeConfirmationOpen] = useState(false)
   const [revokeWalletAddress, setRevokeWalletAddress] = useState("")
   const [isSharedView, setIsSharedView] = useState(false)
-  const [hasNewSharedItems, setHasNewSharedItems] = useState(true)
 
   const filteredItems = items.filter(item =>
     (selectedCategory === "All" || item.category === selectedCategory) &&
@@ -249,8 +248,6 @@ export default function ChainPass() {
           toggleItemTypeFilter={toggleItemTypeFilter}
           isSharedView={isSharedView}
           setIsSharedView={setIsSharedView}
-          hasNewSharedItems={hasNewSharedItems}
-          setHasNewSharedItems={setHasNewSharedItems}
         />
 
         <div className="flex-1 flex overflow-hidden">
