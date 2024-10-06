@@ -1,4 +1,4 @@
-export const storageService = {
+export const localStorageService = {
     getItem: (key: string) => {
       const item = localStorage.getItem(key);
       return item ? JSON.parse(item) : null;
