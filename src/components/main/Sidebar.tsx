@@ -33,8 +33,6 @@ interface SidebarProps {
   toggleItemTypeFilter: (type: string) => void
   isSharedView: boolean
   setIsSharedView: (isShared: boolean) => void
-  hasNewSharedItems: boolean
-  setHasNewSharedItems: (hasNew: boolean) => void
 }
 
 export function Sidebar({
